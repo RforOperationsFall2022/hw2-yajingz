@@ -8,12 +8,16 @@ library(stringr)
 library(plotly)
 
 deaths_cause <- read.csv("Leading_Causes_of_Death_US.csv")
+deaths_cause <- subset(deaths_cause, State != "United States")
+deaths_cause$Deaths <- as.numeric(gsub(",","",deaths_cause$Deaths))
+deaths_cause$Age.adjusted.Death.Rate <- as.numeric(gsub(",","",deaths_cause$Age.adjusted.Death.Rate))
+
 
 # Avoid plotly issues ----------------------------------------------
 pdf(NULL)
 
 # Application header & title ----------------------------------------------
-header <- dashboardHeader(title = "Death Causes in the US",
+header <- dashboardHeader(title = "Death Causes",
                           
                           # Drop down menu ------------------------------
                           dropdownMenu(type = "notifications",
@@ -41,7 +45,7 @@ sidebar <- dashboardSidebar(
                 choices = sort(unique(deaths_cause$Cause.Name)),
                 multiple = TRUE,
                 selectize = TRUE,
-                selected = c("Alzheimer's disease")),
+                selected = c("Alzheimer's disease", "Cancer")),
     
     # States Selection ----------------------------------------------
     selectInput("stateSelect",
@@ -49,7 +53,7 @@ sidebar <- dashboardSidebar(
                 choices = sort(unique(deaths_cause$State)),
                 multiple = TRUE,
                 selectize = TRUE,
-                selected = c("United States")),
+                selected = c("California", "Alabama")),
     
     # Year Selection ----------------------------------------------
     selectInput("yearSelect",
@@ -69,9 +73,9 @@ body <- dashboardBody(tabItems(
           
           # Input and Value Boxes ----------------------------------------------
           fluidRow(
-            infoBoxOutput("info1")
-            # infoBoxOutput("info2"),
-            # infoBoxOutput("info3")
+            valueBoxOutput("box1"),
+            valueBoxOutput("box2"),
+            valueBoxOutput("box3")
           ),
           
           # Plot ----------------------------------------------
@@ -114,6 +118,14 @@ server <- function(input, output) {
            Cause.Name %in% input$deathSelect & State %in% input$stateSelect)
   })
     
+  NotSelectedCauseInput <- reactive({
+    req(input$deathSelect)
+    req(input$stateSelect)
+    req(input$yearSelect)
+    filter(deaths_cause,
+            State %in% input$stateSelect & Year %in% input$yearSelect)
+  })
+    
   
   # Plot comparing dif death causes -----------------------------
   output$plot_cause <- renderPlotly({
@@ -136,7 +148,7 @@ server <- function(input, output) {
   # Plot comparing dif years selected deaths -----------------------------------
   output$plot_year <- renderPlotly({
     dat <- NotSelectedYearInput()
-    ggplot(data=dat, aes(x=Year, y=Deaths, group = 1)) +
+    ggplot(data=dat, aes(x = Year, y = Deaths, group = 1)) +
       geom_line()+
       geom_point(data = SelectedYearInput()) +
       xlab("Years")+
@@ -145,26 +157,28 @@ server <- function(input, output) {
   
   # Data table ----------------------------------------------
   output$table <- DT::renderDataTable({
-    subset(dcInput(), select = c(Year, Cause.Name, State, Deaths, Age.adjusted.Death.Rate))
+    subset(SelectedYearInput(), select = c(Year, Cause.Name, State, Deaths, Age.adjusted.Death.Rate))
   })
   
   # Mass mean info box ----------------------------------------------
-  output$info1 <- renderInfoBox({
-    dat <- dcInput()
-    infoBox("Selected Death Number in Selected Year and States", nrow(distinct(dat,Deaths)))
+  output$box1 <- renderInfoBox({
+    infoBox(title = tags$p("What is AADR?", style = "font-size: 120%; font-weight: bold;"),
+             value = tags$p("Age-adjusted Death Rate is a death rate that controls for differences in population age distributions.", 
+                            style = "font-size: 75%; font-weight: 500;"),
+            color = "red", icon = icon("list-alt"))
   })
-  # 
-  # output$info2 <- renderInfoBox({
-  #   cd <- crimedatainput()
-  #   cd <- cd%>%filter(description=="HOMICIDE")
-  #   infoBox("Total Death Number in Selected Year and States", nrow(distinct(cd,complaint)),color = "purple")
-  # })
-  # 
-  # output$info3 <- renderInfoBox({
-  #   cd <- crimedatainput()
-  #   cd <- cd%>%filter(str_detect(description, "^ROBBERY CARJACKING"))
-  #   infoBox("Total Number of Carjackings", nrow(distinct(cd,complaint)),color = "red")
-  # })
+
+  output$box2 <- renderValueBox({
+    dat <- NotSelectedCauseInput()
+    num <- round(mean(dat$Age.adjusted.Death.Rate[dat$Cause.Name=="All causes"], na.rm = TRUE),1)
+    valueBox("Avg AADR For Total Causes In The Year And States", value = num, color = "purple")
+  })
+
+  output$box3 <- renderValueBox({
+    dat <- SelectedYearInput()
+    num <- round(mean(dat$Age.adjusted.Death.Rate, na.rm = TRUE),1)
+    valueBox("Avg AADR For Selected Causes In The Year And States", value = num, color = "maroon")
+  })
 }
 
 # Run the application ----------------------------------------------
