@@ -86,8 +86,7 @@ body <- dashboardBody(tabItems(
             infoBoxOutput("box1"),
             valueBoxOutput("box2"),
             valueBoxOutput("box3"),
-            valueBoxOutput("box4"),
-            valueBoxOutput("box5")
+            valueBoxOutput("box4")
           ),
           
           # Plot ----------------------------------------------
@@ -209,14 +208,8 @@ server <- function(input, output) {
     num <- round(mean(dat$Age.adjusted.Death.Rate, na.rm = TRUE),1)
     valueBox("Avg AADR For Selected Causes In The Selected Year And States", value = num, color = "maroon")
   })
-
-  output$box4 <- renderValueBox({
-    dat <- NotSelectedYearInput()
-    num <- sum(dat$Deaths, na.rm = TRUE)
-    valueBox("Death Number For Total Causes In The Selected Year And States", value = num, color = "yellow")
-  })
   
-  output$box5 <- renderValueBox({
+  output$box4 <- renderValueBox({
     dat <- SelectedYearInput()
     num <- sum(dat$Deaths, na.rm = TRUE)
     valueBox("Death Number For Selected Causes In The Selected Year And States", value = num, color = "black")
